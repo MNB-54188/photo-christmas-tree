@@ -1,0 +1,20 @@
+# 依赖与构建产物
+node_modules/
+.wrangler/
+.dev.vars
+.env
+.env.local
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 本地临时文件
+*.log
+.tmp-*.json
+tmp/
+
+# WorkBuddy 项目数据（含会话记忆，不入库）
+.workbuddy/

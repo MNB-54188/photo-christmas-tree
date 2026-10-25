@@ -1,0 +1,24 @@
+#:schema node_modules/wrangler/config-schema.json
+name = "photo-christmas-tree"
+compatibility_date = "2025-01-01"
+
+# Cloudflare Pages 高级模式：静态资源目录
+pages_build_output_dir = "public"
+
+# ---------- D1：照片元信息 ----------
+# 创建命令：npm run db:create
+# 然后把返回的 database_id 填到下面
+[[d1_databases]]
+binding = "DB"
+database_name = "photo-tree-db"
+database_id = "6f3cd8d5-bb59-4767-a893-64e7f4beb3ee"
+
+# ---------- KV：照片二进制 ----------
+# 创建命令：npm run kv:create
+# 然后把返回的 id 填到下面
+[[kv_namespaces]]
+binding = "PHOTOS_KV"
+id = "08c1f14d836142f88229727458f85624"
+
+# ---------- 本地开发时的绑定（wrangler pages dev 使用）----------
+# 若想让本地 dev 也连真实 D1/KV，把上面的 id 替换为真实值即可。

@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#05070f" />
+<meta name="description" content="用照片拼成的 3D 圣诞树相册，支持摄像头手势控制，一键部署到 Cloudflare Pages" />
+<title>图片圣诞树 · 手势相册</title>
+
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link rel="stylesheet" href="/styles.css" />
+
+<script>
+  /* 全局错误提示（模块加载失败 / 运行异常时直接显示在加载层） */
+  window.addEventListener('error', function (e) {
+    var tip = document.getElementById('loader-tip');
+    var msg = e && (e.message || (e.target && e.target.src) || e.type) || '未知错误';
+    if (tip && document.getElementById('loader') && !document.getElementById('loader').classList.contains('done')) {
+      tip.textContent = '出错了：' + msg;
+      tip.style.color = '#ff8a9a';
+    }
+  }, true);
+</script>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/",
+    "tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs"
+  }
+}
+</script>
+</head>
+
+<body>
+<div id="app">
+  <canvas id="scene"></canvas>
+
+  <!-- ============ 加载层 ============ -->
+  <div id="loader">
+    <div class="loader-inner">
+      <div class="loader-star"></div>
+      <p class="loader-title">正在点亮圣诞树</p>
+      <div class="loader-bar"><i id="loader-fill"></i></div>
+      <p class="loader-tip" id="loader-tip">加载照片中…</p>
+    </div>
+  </div>
+
+  <!-- ============ 顶栏 ============ -->
+  <header id="topbar">
+    <div class="brand">
+      <span class="brand-icon">🎄</span>
+      <div class="brand-text">
+        <h1>图片圣诞树</h1>
+      </div>
+    </div>
+    <div class="xmas-title">
+      <h1>Merry Christmas</h1>
+      <p id="brand-sub">照片 · 手势 · 3D 相册</p>
+    </div>
+    <div class="top-actions">
+      <button class="btn btn-ghost" id="btn-help" title="使用说明">说明</button>
+      <button class="btn btn-ghost" id="btn-manage" title="照片管理">相册</button>
+      <button class="btn btn-ghost" id="btn-full" title="全屏">全屏</button>
+    </div>
+  </header>
+
+  <!-- ============ 底部控制条 ============ -->
+  <div id="dock">
+    <div class="dock-row" id="shape-row">
+      <button class="chip active" data-shape="tree"><span>🎄</span>圣诞树</button>
+      <button class="chip" data-shape="sphere"><span>🔮</span>水晶球</button>
+      <button class="chip" data-shape="spiral"><span>🌀</span>螺旋塔</button>
+      <button class="chip" data-shape="heart"><span>💖</span>爱心</button>
+      <button class="chip" data-shape="scatter"><span>✨</span>星云散开</button>
+      <button class="chip" data-shape="wall"><span>🖼️</span>照片墙</button>
+    </div>
+
+    <div class="dock-row dock-row-2">
+      <label class="btn btn-primary" for="file-input">
+        <span>＋</span> 添加照片
+        <input id="file-input" type="file" accept="image/*" multiple hidden />
+      </label>
+
+      <button class="btn" id="btn-gesture"><span>🖐️</span> 开启手势</button>
+      <button class="btn" id="btn-rotate"><span>🔄</span> 自动旋转</button>
+      <button class="btn" id="btn-snow"><span>❄️</span> 飘雪</button>
+      <button class="btn" id="btn-bloom"><span>💫</span> 光晕</button>
+      <button class="btn" id="btn-music"><span>🎵</span> 音乐</button>
+      <span class="dock-sep"></span>
+      <span class="dock-stat" id="stat">0 张照片</span>
+    </div>
+  </div>
+
+  <!-- ============ 摄像头 / 手势 HUD ============ -->
+  <div id="cam" class="hidden">
+    <div class="cam-head">
+      <span>摄像头</span>
+      <button id="cam-close" aria-label="关闭">×</button>
+    </div>
+    <div class="cam-stage">
+      <video id="cam-video" playsinline muted autoplay></video>
+      <canvas id="cam-canvas"></canvas>
+    </div>
+    <div class="cam-foot">
+      <div class="gesture-name" id="gesture-name">等待识别…</div>
+      <div class="gesture-bars">
+        <div class="gbar"><i id="gbar-rot"></i><em>旋转</em></div>
+        <div class="gbar"><i id="gbar-zoom"></i><em>缩放</em></div>
+      </div>
+      <div class="cam-debug" id="cam-debug"></div>
+    </div>
+  </div>
+
+  <!-- ============ 照片管理面板 ============ -->
+  <aside id="panel" class="hidden">
+    <div class="panel-head">
+      <h2>我的相册 <em id="panel-count">0</em></h2>
+      <button id="panel-close" aria-label="关闭">×</button>
+    </div>
+    <div class="panel-body" id="panel-body"></div>
+    <div class="panel-foot">
+      <label class="btn btn-primary btn-block" for="file-input-2">
+        上传新照片
+        <input id="file-input-2" type="file" accept="image/*" multiple hidden />
+      </label>
+      <p class="panel-note" id="storage-note"></p>
+    </div>
+  </aside>
+
+  <!-- ============ 照片灯箱 ============ -->
+  <div id="lightbox" class="hidden">
+    <button id="lb-close" aria-label="关闭">×</button>
+    <button id="lb-prev" aria-label="上一张">‹</button>
+    <img id="lb-img" alt="" />
+    <button id="lb-next" aria-label="下一张">›</button>
+    <p id="lb-name"></p>
+  </div>
+
+  <!-- ============ 上传密码锁 ============ -->
+  <div id="lock" class="hidden">
+    <div class="lock-card">
+      <button id="lock-close" aria-label="关闭">×</button>
+      <div class="lock-icon">🔒</div>
+      <h2 id="lock-title">请输入上传密码</h2>
+      <p class="lock-sub" id="lock-sub">照片上传受到保护，请输入密码</p>
+      <input id="lock-input" type="password" placeholder="上传密码" autocomplete="current-password" />
+      <input id="lock-input2" type="password" placeholder="再输入一次" autocomplete="new-password" />
+      <p class="lock-err" id="lock-err"></p>
+      <button class="btn btn-primary btn-block" id="lock-ok">确认</button>
+      <p class="lock-tip" id="lock-tip">密码只在本次会话内记住，关闭标签页后需重新输入</p>
+    </div>
+  </div>
+
+  <!-- ============ 说明浮层 ============ -->
+  <div id="help" class="hidden">
+    <div class="help-card">
+      <button id="help-close" aria-label="关闭">×</button>
+      <h2>使用说明</h2>
+
+      <h3>🖐️ 手势控制</h3>
+      <ul class="help-gestures">
+        <li><b>🖐 张开手掌</b><span>左右移动 = 旋转；手举高 = 俯视，放中间 = 正视，压低 = 仰视</span></li>
+        <li><b>🤏 捏合拇指食指</b><span>捏住后张开 = 放大，捏紧 = 缩小</span></li>
+        <li><b>🤏🤏 双手捏合</b><span>两手拉开 = 放大，靠拢 = 缩小</span></li>
+        <li><b>✌️ 比耶</b><span>下一张照片（没打开时先打开正中的那张）</span></li>
+        <li><b>☝️ 伸食指</b><span>关闭照片放大界面（仅在打开照片时生效，不会误触）</span></li>
+        <li><b>🤟 三指</b><span>上一个造型</span></li>
+        <li><b>🖖 四指</b><span>下一个造型</span></li>
+        <li><b>✊ 握拳</b><span>收回成圣诞树造型</span></li>
+      </ul>
+
+      <h3>🖱️ 鼠标 / 触屏</h3>
+      <ul>
+        <li>拖拽 = 旋转　·　滚轮 / 双指 = 缩放　·　单击照片 = 放大查看</li>
+        <li>键盘：<kbd>1</kbd>~<kbd>6</kbd> 切换造型，<kbd>空格</kbd> 自动旋转，<kbd>G</kbd> 手势开关</li>
+      </ul>
+
+      <h3>☁️ 照片存储</h3>
+      <ul>
+        <li>部署到 Cloudflare 后：照片二进制存 <b>KV</b>，元信息存 <b>D1</b>，多设备共享。</li>
+        <li>未部署 / 接口不可用时自动降级为<b>浏览器本地存储</b>，功能完全可用。</li>
+      </ul>
+
+      <h3>🔒 上传密码</h3>
+      <ul>
+        <li>上传照片需要密码，输入正确后<b>本次会话内不再询问</b>（关掉标签页需重输）。</li>
+        <li>本地预览和线上用的是<b>同一个密码</b>；线上在服务端校验，直接调接口会被拒绝。</li>
+      </ul>
+      <p class="help-foot">祝你在圣诞树下，看见一整年的好时光 🎁</p>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script type="module" src="/js/main.js"></script>
+</body>
+</html>
