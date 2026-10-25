@@ -2,7 +2,8 @@
  * 用法：node test/live_lock_check.mjs [密码] [cdp地址]
  * 会自动上传一张示例图并在结束后删除，不留垃圾数据
  */
-const PW = process.argv[2] || 'ma13136665930';
+const PW = process.argv[2];
+if (!PW) { console.error('用法: node test/live_lock_check.mjs <密码> [cdp地址]'); process.exit(1); }
 const CDP = process.argv[3] || 'http://127.0.0.1:9223';
 const BASE = 'https://photo-christmas-tree.pages.dev';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));

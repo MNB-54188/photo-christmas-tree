@@ -5,7 +5,8 @@
  *    2) msedge --headless=new --remote-debugging-port=9223 --user-data-dir=/tmp/pt-lk3 http://127.0.0.1:8788/
  *  用法：node test/lock_flow_test.mjs [密码]
  * ============================================================ */
-const PW = process.argv[2] || 'test1234';
+const PW = process.argv[2];
+if (!PW) { console.error('用法: node test/lock_flow_test.mjs <上传密码> [cdp地址]'); process.exit(1); }
 const CDP = 'http://127.0.0.1:9223';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 

@@ -54,14 +54,17 @@ export const PHOTO_COLS = 'id, name, width, height, size, created_at';
 
 /* ------------------------------------------------------------------ */
 /*  上传密码锁                                                          */
-/*  默认使用下面内置密码的 SHA-256（本地 / 云端同一个密码，开箱即用）。   */
-/*  想改密码，二选一写入 Pages 环境变量（优先级高于内置值）：            */
-/*    UPLOAD_PASSWORD          = 明文密码                               */
-/*    UPLOAD_PASSWORD_SHA256   = 新密码的 SHA-256（推荐，不留明文）      */
+/*  开启方式（任选其一）：                                              */
+/*   1) Cloudflare Pages 环境变量（推荐，不用改代码、不用重新部署）       */
+/*        UPLOAD_PASSWORD        = 明文密码                             */
+/*        UPLOAD_PASSWORD_SHA256 = 密码的 SHA-256                       */
+/*   2) 把哈希填进下面的 BUILTIN_PASSWORD_SHA256                        */
+/*        （同时填 public/js/api.js 的 BUILTIN_HASH，本地模式才同步）     */
+/*  都不填 → 不启用密码锁（任何人都能上传）                              */
 /* ------------------------------------------------------------------ */
 
-/** 内置密码的 SHA-256（与 public/js/api.js 中的 BUILTIN_HASH 保持一致） */
-export const BUILTIN_PASSWORD_SHA256 = 'aae162fe7a5e2eee193c515a9a823762630013afa067133c741d791b40bd9b61';
+/** 占位符：改成你自己密码的 SHA-256 才会启用内置密码 */
+export const BUILTIN_PASSWORD_SHA256 = '';
 
 async function sha256Hex(str) {
   const data = new TextEncoder().encode(str);
@@ -73,7 +76,7 @@ async function sha256Hex(str) {
 export async function checkPassword(env, password) {
   const plain = env.UPLOAD_PASSWORD;
   const hash = env.UPLOAD_PASSWORD_SHA256 || BUILTIN_PASSWORD_SHA256;
-  if (!plain && !hash) return { ok: true, enabled: false };   // 都为空 → 不锁
+  if (!plain && !hash) return { ok: true, enabled: false };   // 都没配 → 不锁
   if (!password) return { ok: false, enabled: true };
 
   if (plain && password === plain) return { ok: true, enabled: true };

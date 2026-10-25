@@ -2,7 +2,8 @@
  * 前置：python -m http.server 8123 --directory public   +  已开 9223 的 Edge
  * 用法：node test/lock_local_test.mjs [密码]
  */
-const PW = process.argv[2] || 'ma13136665930';
+const PW = process.argv[2];
+if (!PW) { console.error('用法: node test/lock_local_test.mjs <密码> [cdp地址]'); process.exit(1); }
 const CDP = process.argv[3] || 'http://127.0.0.1:9223';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const list = await (await fetch(CDP + '/json')).json();

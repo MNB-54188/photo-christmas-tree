@@ -124,9 +124,11 @@ const LOCAL_HASH_KEY = 'pt-upload-pw-hash'; // 本地模式的密码哈希
  * 内置密码的 SHA-256：与 functions/_lib.js 的 BUILTIN_PASSWORD_SHA256 必须一致。
  * 作用：纯静态打开（没有后端接口）时，本地模式也用同一个密码加锁，
  *      做到「本地和 Cloudflare 同一个密码」。
- * 改密码：两边同时改，或在 Cloudflare Pages 后台配置 UPLOAD_PASSWORD（云端优先用环境变量）。
+ * 默认为空占位符：此时本地模式会在首次上传时让你自己设一个密码（存本机 localStorage）。
+ * 想固定密码：把这里和 functions/_lib.js 一起改成同一个哈希，
+ *            或只在 Cloudflare 后台配 UPLOAD_PASSWORD（云端优先用环境变量）。
  */
-const BUILTIN_HASH = 'aae162fe7a5e2eee193c515a9a823762630013afa067133c741d791b40bd9b61';
+const BUILTIN_HASH = '';
 
 async function sha256Hex(str) {
   const data = new TextEncoder().encode(str);

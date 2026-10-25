@@ -158,36 +158,40 @@ npm run dev      # wrangler pages dev，会带 Functions 模拟
 
 ---
 
-## 🔒 上传密码锁
+## 🔒 上传密码锁（默认关闭，需要你自己开）
 
-照片上传需要密码，**本地预览和 Cloudflare 线上用的是同一个密码**：
+> 仓库里**不含任何密码**：代码里是空占位符，想启用就按下面任一种方式设置。
 
-- 选好照片 → 弹出密码框 → 输入正确后本次会话内不再询问（关掉标签页需重输）
-- 云端模式：由 Pages Functions 在**服务端**校验，绕过页面直接调接口会返回 `401`
-- 本地模式（没有后端接口）：前端用同一密码的 SHA-256 校验
+启用后：选好照片 → 弹出密码框 → 输对后本次会话内不再询问（关掉标签页需重输）。
+云端模式由 Pages Functions 在**服务端**校验，绕过页面直接调接口会返回 `401`。
 
 ![上传密码弹窗](docs/lock-preview.png)
 
-### 改密码
+### 方式 1：Cloudflare 密钥（推荐，不用改代码）
 
-默认密码写在代码里（只存 SHA-256，不存明文）：
+```bash
+# 哈希方式（推荐，控制台里看不到明文）
+node -e "console.log(require('crypto').createHash('sha256').update('你的密码').digest('hex'))" \
+  | npx wrangler pages secret put UPLOAD_PASSWORD_SHA256
+
+# 或者直接放明文
+echo "你的密码" | npx wrangler pages secret put UPLOAD_PASSWORD
+```
+
+也可以在控制台 **Workers & Pages → photo-christmas-tree → Settings → Environment variables** 里加，
+改完对新部署生效（密钥改了记得重新 `npm run deploy`）。
+
+### 方式 2：写进代码（本地 + 云端同一个密码）
 
 | 位置 | 内容 |
 |---|---|
 | `functions/_lib.js` | `BUILTIN_PASSWORD_SHA256` |
 | `public/js/api.js` | `BUILTIN_HASH` |
 
-两处要改成**同一个**新密码的哈希，然后 `npm run deploy`。
-生成哈希：
+两处填**同一个**哈希，然后 `npm run deploy`。
+留空时：云端不启用锁；本地模式会在首次上传时让你**自己设一个**（存本机 localStorage）。
 
-```bash
-node -e "console.log(require('crypto').createHash('sha256').update('新密码').digest('hex'))"
-```
-
-也可以不改代码，直接在 Cloudflare 控制台
-**Workers & Pages → photo-christmas-tree → Settings → Environment variables** 添加
-`UPLOAD_PASSWORD`（明文）或 `UPLOAD_PASSWORD_SHA256`（哈希，推荐）。
-环境变量优先级高于代码里的内置值，线上立即生效，不用重新部署。
+> 本地预览想带密码跑：`npx wrangler pages dev public --port 8788 -b UPLOAD_PASSWORD=你的密码`
 
 ---
 
