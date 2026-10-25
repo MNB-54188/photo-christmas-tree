@@ -1,14 +1,12 @@
 # 🎄 图片圣诞树 · 手势相册
 
 [![GitHub](https://img.shields.io/badge/GitHub-MNB--54188%2Fphoto--christmas--tree-181717?logo=github)](https://github.com/MNB-54188/photo-christmas-tree)
-[![Cloudflare Pages](https://img.shields.io/badge/Cloudflare-Pages-F38020?logo=cloudflare)](https://photo-christmas-tree.pages.dev)
+![Cloudflare Pages](https://img.shields.io/badge/Cloudflare-Pages-F38020?logo=cloudflare)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 用你自己的照片拼成一颗 3D 圣诞树，**摄像头手势控制**、雪花、彩灯、多种造型，部署在 **Cloudflare Pages + D1 + KV** 上，无需任何传统服务器。
 
-## 🌐 线上地址
-
-**https://photo-christmas-tree.pages.dev**
+## 🌐 部署信息
 
 - Pages 项目：`photo-christmas-tree`
 - D1：`photo-tree-db`（`6f3cd8d5-bb59-4767-a893-64e7f4beb3ee`）
