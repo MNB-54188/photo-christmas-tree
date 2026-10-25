@@ -266,8 +266,12 @@ export const store = {
   async remove(id) {
     if (!id || String(id).startsWith('sample-')) return;
     if (this.mode === 'cloud') {
-      const r = await fetch(`/api/photos/${id}`, { method: 'DELETE' });
+      const r = await fetch(`/api/photos/${id}`, {
+        method: 'DELETE',
+        headers: { 'X-Upload-Password': lock.password || '' },
+      });
       const j = await r.json().catch(() => ({}));
+      if (r.status === 401) { lock.forget(); throw new Error('DELETE_LOCKED'); }
       if (!r.ok || !j.ok) throw new Error(j.error || `删除失败 (${r.status})`);
     } else {
       await idbDel(id);

@@ -64,6 +64,8 @@ const el = {
   lockOk: $('lock-ok'),
   lockClose: $('lock-close'),
   lockTip: $('lock-tip'),
+  lockBtn: $('btn-lock'),
+  lockClear: $('lock-clear'),
 };
 
 /* ---------------- 偏好持久化 ---------------- */
@@ -177,25 +179,40 @@ function updateStat() {
   el.sub.textContent = store.mode === 'cloud' ? 'Cloudflare D1 + KV · 多设备同步' : '本地存储模式';
 }
 
-/* ---------------- 上传密码锁 ---------------- */
+/* ---------------- 上传 / 删除密码锁 ---------------- */
 
-let pendingFiles = null;   // 等待解锁后才处理的文件
+let pendingAction = null;  // 等待解锁后才执行的动作（上传 or 删除）
+let setupMode = false;     // 当前弹窗是否为「设置 / 修改本机密码」
+let setupHadPw = false;    // 打开设置弹窗时本机是否已有密码
 
-/** 弹出密码框。@param {boolean} setup 本地模式首次设置密码 */
-function askPassword(setup = false) {
-  el.lockTitle.textContent = setup ? '设置上传密码' : '请输入上传密码';
+/** 弹出密码框。@param {boolean} setup 设置本机密码 @param {object} opts 自定义文案 */
+function askPassword(setup = false, opts = {}) {
+  setupMode = !!setup;
+  const has = lock.hasLocalPassword();
+  setupHadPw = has;
+  el.lockTitle.textContent = setup
+    ? (has ? '修改本机密码' : '设置本机密码')
+    : (opts.title || '请输入照片密码');
   el.lockSub.textContent = setup
-    ? '本地模式下先设一个密码，之后上传都需要它'
-    : (store.mode === 'cloud' ? '云端相册已启用上传保护' : '请输入本机上传密码');
+    ? (has ? '输入新密码可覆盖旧密码' : '设好之后，上传和删除照片都要输入它')
+    : (opts.sub || (store.mode === 'cloud' ? '云端相册已启用保护' : '请输入本机照片密码'));
   el.lockInput2.classList.toggle('hidden', !setup);
+  el.lockClear.classList.toggle('hidden', !(setup && has));
   el.lockInput.value = '';
   el.lockInput2.value = '';
   el.lockErr.textContent = '';
   el.lockTip.textContent = setup
-    ? '密码保存在本机浏览器，忘记可在控制台执行 localStorage.removeItem("pt-upload-pw-hash") 重置'
+    ? '密码只保存在这台电脑的浏览器里，不会上传到任何服务器'
     : '密码只在本次会话内记住，关闭标签页后需重新输入';
   el.lock.classList.remove('hidden');
   setTimeout(() => el.lockInput.focus(), 60);
+}
+
+/** 解锁成功后执行挂起的操作 */
+function runPending() {
+  const act = pendingAction;
+  pendingAction = null;
+  if (act) act();
 }
 
 function shakeLock(msg) {
@@ -209,13 +226,23 @@ async function submitPassword() {
   const pw = el.lockInput.value;
   if (!pw) return shakeLock('请输入密码');
 
+  if (setupMode) {
+    /* 设置 / 修改本机密码 */
+    if (pw !== el.lockInput2.value) return shakeLock('两次输入的密码不一致');
+    await lock.setLocalPassword(pw);
+    el.lock.classList.add('hidden');
+    toast(setupHadPw ? '本机密码已更新 🔒' : '本机密码已设置 🔒');
+    runPending();
+    return;
+  }
+
   if (lock.mode === 'local' && !lock.hasLocalPassword()) {
     /* 本地模式首次使用：设置密码 */
     if (pw !== el.lockInput2.value) return shakeLock('两次输入的密码不一致');
     await lock.setLocalPassword(pw);
     el.lock.classList.add('hidden');
-    toast('上传密码已设置 🔒');
-    if (pendingFiles) { const f = pendingFiles; pendingFiles = null; handleFiles(f); }
+    toast('本机密码已设置 🔒');
+    runPending();
     return;
   }
 
@@ -231,24 +258,55 @@ async function submitPassword() {
   }
 
   el.lock.classList.add('hidden');
-  if (pendingFiles) { const f = pendingFiles; pendingFiles = null; handleFiles(f); }
+  runPending();
 }
 
 el.lockOk.addEventListener('click', submitPassword);
 el.lockInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitPassword(); });
 el.lockInput2.addEventListener('keydown', (e) => { if (e.key === 'Enter') submitPassword(); });
-el.lockClose.addEventListener('click', () => { el.lock.classList.add('hidden'); pendingFiles = null; });
+el.lockClose.addEventListener('click', () => { el.lock.classList.add('hidden'); pendingAction = null; });
 el.lock.addEventListener('click', (e) => {
-  if (e.target === el.lock) { el.lock.classList.add('hidden'); pendingFiles = null; }
+  if (e.target === el.lock) { el.lock.classList.add('hidden'); pendingAction = null; }
 });
+
+/* 🔒 密码按钮：设置 / 修改 / 清除本机密码 */
+el.lockBtn.addEventListener('click', () => {
+  if (store.mode === 'cloud') {
+    return toast(store.locked
+      ? '线上密码在 Cloudflare 里配置，本机会话内输入一次即可记住'
+      : '线上未启用密码，可在 Cloudflare 项目设置里添加 UPLOAD_PASSWORD');
+  }
+  pendingAction = null;
+  askPassword(true);
+});
+
+el.lockClear.addEventListener('click', () => {
+  localStorage.removeItem('pt-upload-pw-hash');
+  lock.forget();
+  lock.enabled = false;
+  el.lock.classList.add('hidden');
+  toast('已清除本机密码 🔓');
+});
+
+/**
+ * 需要密码的动作统一走这里：已解锁直接执行，否则先弹框。
+ * @param {boolean} force true = 即使本次会话已解锁也要重新验证（删除用）
+ */
+function requirePassword(action, opts, force = false) {
+  if (!lock.enabled) return action();
+  if (lock.unlocked && !force) return action();
+  pendingAction = action;
+  askPassword(lock.mode === 'local' && !lock.hasLocalPassword(), opts);
+}
 
 /* ---------------- 上传 ---------------- */
 
 /** 需要密码时先弹框，解锁后再真正处理 */
 function requestUpload(fileList) {
-  if (lock.unlocked) return handleFiles(fileList);
-  pendingFiles = fileList;
-  askPassword(lock.mode === 'local' && !lock.hasLocalPassword());
+  requirePassword(() => handleFiles(fileList), {
+    title: '请输入上传密码',
+    sub: store.mode === 'cloud' ? '云端相册已启用上传保护' : '请输入本机上传密码',
+  });
 }
 
 async function handleFiles(fileList) {
@@ -264,9 +322,10 @@ async function handleFiles(fileList) {
     catch (e) {
       if (e.message === 'UPLOAD_LOCKED') {   // 服务端判定密码失效 → 重新验证
         lock.forget();
-        pendingFiles = files.slice(files.indexOf(f));
+        const rest = files.slice(files.indexOf(f));
+        pendingAction = () => handleFiles(rest);
         toast('上传密码已失效，请重新输入', 3200);
-        askPassword();
+        askPassword(false, { title: '请输入上传密码', sub: '密码已失效，请重新验证' });
         return;
       }
       fail++; toast('上传失败：' + (e.message || e), 3000);
@@ -284,6 +343,28 @@ function onPickFiles(e) {
 }
 el.file.addEventListener('change', onPickFiles);
 el.file2.addEventListener('change', onPickFiles);
+
+/* ---------------- 删除 ---------------- */
+
+/** 删除单张照片（受密码保护，密码失效会重新弹框） */
+async function deletePhoto(id) {
+  try {
+    await store.remove(id);
+    store.photos = store.photos.filter((p) => p.id !== id);
+    if (!store.photos.length) store.photos = (await store.refresh());
+    await reloadPhotos();
+    toast('已删除 🗑️');
+  } catch (e) {
+    if (e.message === 'DELETE_LOCKED') {   // 服务端判定密码失效 → 重新验证
+      lock.forget();
+      pendingAction = () => deletePhoto(id);
+      toast('删除密码已失效，请重新输入', 3200);
+      askPassword(false, { title: '请输入删除密码', sub: '密码已失效，请重新验证' });
+      return;
+    }
+    toast('删除失败：' + e.message);
+  }
+}
 
 /* ---------------- 相册面板 ---------------- */
 function renderPanel() {
@@ -307,13 +388,11 @@ function renderPanel() {
     b.addEventListener('click', async (ev) => {
       ev.stopPropagation();
       const id = b.getAttribute('data-del');
-      try {
-        await store.remove(id);
-        store.photos = store.photos.filter((p) => p.id !== id);
-        if (!store.photos.length) store.photos = (await store.refresh());
-        await reloadPhotos();
-        toast('已删除');
-      } catch (e) { toast('删除失败：' + e.message); }
+      const doDelete = () => deletePhoto(id);
+      requirePassword(doDelete, {
+        title: '请输入删除密码',
+        sub: store.mode === 'cloud' ? '删除照片不可恢复，需要密码确认' : '请输入本机删除密码',
+      }, true);   // 删除每次都要重新验证，防止误删
     });
   });
   el.panelBody.querySelectorAll('.thumb').forEach((t) => {

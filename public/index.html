@@ -62,6 +62,7 @@
     <div class="top-actions">
       <button class="btn btn-ghost" id="btn-help" title="使用说明">说明</button>
       <button class="btn btn-ghost" id="btn-manage" title="照片管理">相册</button>
+      <button class="btn btn-ghost" id="btn-lock" title="设置本机上传/删除密码">🔒 密码</button>
       <button class="btn btn-ghost" id="btn-full" title="全屏">全屏</button>
     </div>
   </header>
@@ -150,6 +151,7 @@
       <p class="lock-err" id="lock-err"></p>
       <button class="btn btn-primary btn-block" id="lock-ok">确认</button>
       <p class="lock-tip" id="lock-tip">密码只在本次会话内记住，关闭标签页后需重新输入</p>
+      <button class="btn btn-ghost btn-block hidden" id="lock-clear">清除本机密码</button>
     </div>
   </div>
 
@@ -183,10 +185,10 @@
         <li>未部署 / 接口不可用时自动降级为<b>浏览器本地存储</b>，功能完全可用。</li>
       </ul>
 
-      <h3>🔒 上传密码（可选）</h3>
+      <h3>🔒 照片密码（可选）</h3>
       <ul>
-        <li>若已启用密码，上传时会弹框要求输入，正确后<b>本次会话内不再询问</b>（关掉标签页需重输）。</li>
-        <li>线上在服务端校验，绕过页面直接调接口会被拒绝；未启用时任何人都能上传。</li>
+        <li>若已启用密码，<b>上传和删除照片</b>都会弹框要求输入，正确后<b>本次会话内不再询问</b>（关掉标签页需重输）。</li>
+        <li>线上在服务端校验，绕过页面直接调接口会被拒绝；未启用时任何人都能上传或删除。</li>
       </ul>
       <p class="help-foot">祝你在圣诞树下，看见一整年的好时光 🎁</p>
     </div>
