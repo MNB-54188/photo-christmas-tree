@@ -199,6 +199,20 @@ echo "你的密码" | npx wrangler pages secret put UPLOAD_PASSWORD
 
 ---
 
+## 🐙 本机 git 连不上 GitHub 时怎么推送
+
+某些网络/代理环境下 `git push` 会卡住或报
+`CONNECT tunnel failed, response 502`（`github.com:443` 被代理拦截）。
+这时可以绕过 git 协议，直接用 GitHub API 推送，且**提交号与本地完全一致**：
+
+```bash
+node tools/gh_push_exact.mjs <你的GitHub令牌> MNB-54188/photo-christmas-tree main
+```
+
+令牌申请：github.com/settings/tokens → Generate new token (classic) → 勾选 `repo`。
+
+---
+
 ## ⚙️ 常见问题
 
 **上传报“单张照片不能超过 8MB”？**
